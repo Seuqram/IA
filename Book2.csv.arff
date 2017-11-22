@@ -1,0 +1,22 @@
+@relation Book2
+
+@attribute TPII {A,R,N}
+@attribute TPI {A,R,N}
+@attribute FSI {A,R,N}
+@attribute OC {A,R,N}
+@attribute MB {A,R,N}
+@attribute TPD {A,R,N}
+@attribute DPW {A,R,N}
+
+@data
+A,A,N,A,A,N,A
+A,A,A,A,A,A,A
+A,A,A,A,A,A,A
+A,A,A,A,A,A,A
+A,A,A,A,N,A,A
+A,A,A,A,R,A,A
+A,A,A,A,A,A,A
+R,A,N,N,R,N,N
+R,A,N,N,N,N,N
+R,A,A,A,A,A,A
+R,A,A,A,A,A,A
