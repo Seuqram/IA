@@ -71,8 +71,6 @@ public class main {
 			}
 
 		}
-		evidence.put(FSI, "APROVADO");
-		evidence.put(OC, "APROVADO");
 		inferer.setEvidence(evidence);
 
 		double[] beliefsC = inferer.getBeliefs(keyNode);
