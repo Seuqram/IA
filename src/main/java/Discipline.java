@@ -2,12 +2,22 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
-@AllArgsConstructor @Getter @Setter
+@AllArgsConstructor
+@Getter
+@Setter
 public class Discipline {
-	public static enum statusEnum {
-		APROVADO, REPROVADO, NAO_CURSOU;
-	}
-	
+
 	private String key;
-	private statusEnum result;
+	private DisciplineResult result;
+
+	/**
+	 * @param discipline
+	 * @return if the given discipline is equal to this discipline
+	 */
+	public boolean equals(Discipline discipline) {
+		if (discipline.key.equalsIgnoreCase(this.key))
+			if (discipline.result.equals(this.result))
+				return true;
+		return false;
+	}
 }

@@ -1,84 +1,107 @@
- import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
+import java.lang.reflect.Array;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Scanner;
+
+import javax.print.DocFlavor.CHAR_ARRAY;
+
+import org.eclipse.recommenders.jayes.BayesNet;
+import org.eclipse.recommenders.jayes.BayesNode;
+import org.eclipse.recommenders.jayes.inference.AbstractInferrer;
+import org.eclipse.recommenders.jayes.inference.IBayesInferer;
+import org.eclipse.recommenders.jayes.inference.jtree.JunctionTreeAlgorithm;
 
 import weka.associations.Apriori;
 import weka.associations.AssociationRule;
-import weka.associations.Item;
 import weka.core.Instances;
-import weka.core.converters.ConverterUtils.DataSource;
 
+@SuppressWarnings("deprecation")
 public class main {
 	public ArrayList<Discipline> rules = new ArrayList<>();
+
 	public static void main(String[] args) {
-		String TPII = "TPII";
-		BufferedReader reader = null;
-		try {
-			reader = new BufferedReader( new FileReader("C:\\Users\\rodri\\Documents\\Book2.csv.arff"));
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		Instances data = null;
-		try {
-			data = new Instances(reader);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		// build associator
-		Apriori apriori = new Apriori();
-		apriori.setNumRules(1000000000);
-		apriori.setClassIndex(data.classIndex());
-		try {
-			apriori.buildAssociations(data);
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		Boolean printRule = false;
-		ArrayList<AssociationRule> rules = new ArrayList<>();
-		Boolean addRule = false;
-		for (AssociationRule rule : apriori.getAssociationRules().getRules()) {
-			Boolean cons = false;
-			Boolean prem = false;
-			for (Item consequence : rule.getConsequence()) {
-				if (itemNameMatchesGivenName(consequence, TPII)) { 
-					cons = true;
-				}
-			}
-			for (Item premise : rule.getPremise()) {
-				if(itemNameMatchesGivenName(premise, TPII)) {
-					prem = true;
-				}
-			}
-			if (cons != prem) {
-				if (cons || prem)
-					rules.add(rule);
-			}
-		}
-		
+		String tpiiString = "TPII";
+		ArffReader reader = ArffReader.getInstance();
+		RuleCreator ruleCreator = RuleCreator.getInstance();
 		AssociationRuleCreator creator = AssociationRuleCreator.getInstance();
-		ArrayList<SimpleAssociationRule> simpleRules = new ArrayList<>();
-		rules.forEach(rule -> {
-			SimpleAssociationRule simpleRule = creator.generateRule(rule, "TPII");
-			if (simpleRule != null)
-				simpleRules.add(creator.generateRule(rule, "TPII"));
-		});
-		simpleRules.forEach(simpleRule -> simpleRule.print());
+		BayesNodeManipulator nodeManipulator = BayesNodeManipulator.getInstance();
+
+		Instances data = reader.getInstances("Book2.csv.arff");
+		Apriori apriori = ruleCreator.getAprioriRules(data);
+		ArrayList<AssociationRule> rules = ruleCreator.getRulesForStringInConsequence(tpiiString, apriori);
+		ArrayList<SimpleAssociationRule> simpleRules = creator.getRulesForGivenConsequence(tpiiString, rules);
+		BayesNet bayesNet = new BayesNet();
+
+		BayesNode FSI = nodeManipulator.createNodeWithoutParent(bayesNet, "FSI", simpleRules);
+		BayesNode OC = nodeManipulator.createNodeWithParent(bayesNet, "OC", FSI, simpleRules);
+		BayesNode TPI = nodeManipulator.createNodeWithParent(bayesNet, "TPI", OC, simpleRules);
+		BayesNode MB = nodeManipulator.createNodeWithParent(bayesNet, "MB", TPI, simpleRules);
+		BayesNode TPD = nodeManipulator.createNodeWithParent(bayesNet, "TPD", MB, simpleRules);
+		BayesNode DPW = nodeManipulator.createNodeWithParent(bayesNet, "DPW", TPD, simpleRules);
+		BayesNode keyNode = nodeManipulator.createKeyDiscipline(bayesNet, "TPII", DPW, simpleRules);
+
+		JunctionTreeAlgorithm inferer = new JunctionTreeAlgorithm();
+		inferer.setNetwork(bayesNet);
+		inferer.getFactory().setUseLogScale(true);
+
+		Map<BayesNode, String> evidence = new HashMap<BayesNode, String>();
+		println("ENTRE COM OS DADOS DO HISTÓRICO DO ALUNO PARA CADA MATÉRIA");
+		println("OPÇÕES:");
+		println("1 - APROVADO");
+		println("2 - REPROVADO");
+		println("3 - NAO_CURSOU");
+		println("4 - NÃO PREENCHER");
+		Scanner scanner = new Scanner(System.in);
+		int keyNodeStatus = 0;
+		for (BayesNode node : bayesNet.getNodes()) {
+			print(node.getName());
+			print(": ");
+			int enteredInt = scanner.nextInt();
+			if (node.equals(keyNode)) {
+				if (enteredResultIsValid(enteredInt)) {
+					keyNodeStatus = enteredInt - 1;
+				}
+			} else {
+				if (!getEnteredResult(enteredInt).equals(""))
+					evidence.put(node, getEnteredResult(enteredInt));
+			}
+
+		}
+		evidence.put(FSI, "APROVADO");
+		evidence.put(OC, "APROVADO");
+		inferer.setEvidence(evidence);
+
+		double[] beliefsC = inferer.getBeliefs(keyNode);
+		System.out.println(beliefsC[keyNodeStatus]);
 	}
-	
-	public static boolean itemNameMatchesGivenName(Item item, String name) {
-		return item.getAttribute().name().equals("TPII");
+
+	public static void print(Object object) {
+		System.out.print(object);
 	}
-	public static void print(Object objectToPrint) {
-		System.out.print(objectToPrint);
+
+	public static boolean enteredResultIsValid(int enteredInt) {
+		return (enteredInt > 0 && enteredInt < 3);
 	}
-	
-	public static void println(Object objectToPrint) {
-		System.out.println(objectToPrint);
+
+	public static String getEnteredResult(int enteredInt) {
+		switch (enteredInt) {
+		case 1:
+			return "APROVADO";
+		case 2:
+			return "REPROVADO";
+		case 3:
+			return "NÃO CURSOU";
+		default:
+			return "";
+		}
+	}
+
+	public static void println(Object object) {
+		System.out.println(object);
 	}
 
 }
